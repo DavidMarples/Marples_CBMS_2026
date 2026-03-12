@@ -45,6 +45,278 @@ from sklearn.metrics import accuracy_score,balanced_accuracy_score
 from sklearn.metrics import r2_score
 from scipy.stats import linregress
 
+#%% Functions that will be needed later
+
+def prior_correct(p, pi_train=0.25, pi_test=1/21):
+    '''
+    Takes a set of predicted probabilities (by default for the 3:1 data)
+    and adjusts the probabilities for the test control:positive ratios (by default 20:1)
+
+    Parameters
+    ----------
+    p : array of probabilities.
+    pi_train : The fraction that were positive in the training data. The default is 0.25.
+    pi_test : The fraction that are expected to be positive in the test data. The default is 1/21.
+
+    Returns
+    -------
+    res : the array of adjusted probabilities.
+
+    '''
+    p = np.clip(p, 1e-12, 1 - 1e-12) # numerical safety
+    num = (pi_test / pi_train) * p
+    den = num + ((1 - pi_test) / (1 - pi_train)) * (1 - p)
+    res = num/den
+    return res
+
+
+def CalibCurve(preds,labels,title):
+    '''
+    Parameters
+    ----------
+    preds : Output from a SKLearn predict_proba() function, assumed to have 2 values per row (i.e. prob(0) and prob(1))
+    labels: A column of a pandas dataframe containing the true labels
+    title: string describing the dataset, to go in the graph title
+
+    Returns
+    -------
+    list of the percentage of each decile which were actually positive, plus the number of rows in each probability decile
+    '''
+    preds = preds.tolist()
+    preds = [x[1] for x in preds]
+    data = pd.DataFrame(preds,columns=["Probs"])
+    data["Results"]=labels.tolist()
+    tenths = [0.05,0.15,0.25,0.33,0.45,0.55,0.65,0.75,0.85,0.95]
+    calib = []
+    numbers = []
+    non_zeroes = 0
+    for x in range(10):
+        minx = x/10
+        maxx = minx + 0.1
+        subset = data[(data["Probs"]>minx) & (data["Probs"]<=maxx)]
+        n = len(subset)
+        #print(n)
+        numbers.append(n)
+        if n>0:
+            calib.append(subset["Results"].sum()/n)
+            non_zeroes += 1
+        else:
+            calib.append(0)
+    plt.scatter(tenths, calib)
+    plt.title(f"Calibration Curve by Deciles for {title}")
+    plt.xlabel("Predicted probabilities")
+    plt.ylabel("Actual fraction of those that are positive")
+    try:
+        m,c = np.polyfit(tenths[:non_zeroes],calib[:non_zeroes],1)
+        plt.axline(xy1=(0, c), slope=m, label=f'$y = {m:.2f}x {c:+.2f}$')
+        plt.legend()
+        plt.savefig(f"d:/Project/figures/{title}.png",dpi=300,format="png")
+    except:
+        print("Linear regression failed!")
+        print(calib)
+            
+    #line = m*tenths + c
+    #plt.plot(tenths,line)
+    plt.show()
+    return calib,numbers
+
+
+def CalibCurve2(preds,labels,title):
+    '''
+    Parameters
+    ----------
+    preds : Output from a SKLearn predict_proba() function, assumed to have 2 values per row (i.e. prob(0) and prob(1))
+    labels: A column of a pandas dataframe containing the true labels
+    title: string describing the dataset, to go in the graph title
+
+    Returns
+    -------
+    list of the percentage of each decile which were actually positive, plus the number of rows in each probability decile
+    '''
+    preds = preds.tolist()
+    #preds = [x[1] for x in preds]
+    data = pd.DataFrame(preds,columns=["Probs"])
+    data["Results"]=labels.tolist()
+    tenths = [0.05,0.15,0.25,0.33,0.45,0.55,0.65,0.75,0.85,0.95]
+    calib = []
+    numbers = []
+    non_zeroes = 0
+    for x in range(10):
+        minx = x/10
+        maxx = minx + 0.1
+        subset = data[(data["Probs"]>minx) & (data["Probs"]<=maxx)]
+        n = len(subset)
+        #print(n)
+        numbers.append(n)
+        if n>0:
+            calib.append(subset["Results"].sum()/n)
+            non_zeroes += 1
+        else:
+            calib.append(0)
+    plt.scatter(tenths, calib)
+    plt.title(f"Calibration Curve by Deciles for {title}")
+    plt.xlabel("Predicted probabilities")
+    plt.ylabel("Actual fraction of those that are positive")
+    try:
+        m,c = np.polyfit(tenths[:non_zeroes],calib[:non_zeroes],1)
+        plt.axline(xy1=(0, c), slope=m, label=f'$y = {m:.2f}x {c:+.2f}$')
+        plt.legend()
+    except:
+        print("Linear regression failed!")
+        print(calib)
+            
+    #line = m*tenths + c
+    #plt.plot(tenths,line)
+    plt.show()
+    return calib,numbers
+
+def CalibCurveUntitled(preds,labels,title):
+    '''
+    As above, but doesn't put a title on the plot, so we can use it in a paper'
+    
+    '''
+    preds = preds.tolist()
+    preds = [x[1] for x in preds]
+    data = pd.DataFrame(preds,columns=["Probs"])
+    data["Results"]=labels.tolist()
+    tenths = [0.05,0.15,0.25,0.33,0.45,0.55,0.65,0.75,0.85,0.95]
+    calib = []
+    numbers = []
+    non_zeroes = 0
+    for x in range(10):
+        minx = x/10
+        maxx = minx + 0.1
+        subset = data[(data["Probs"]>minx) & (data["Probs"]<=maxx)]
+        n = len(subset)
+        #print(n)
+        numbers.append(n)
+        if n>0:
+            calib.append(subset["Results"].sum()/n)
+            non_zeroes += 1
+        else:
+            calib.append(0)
+    plt.scatter(tenths, calib)
+    #plt.title(f"Calibration Curve by Deciles for {title}")
+    plt.xlabel("Predicted probabilities")
+    plt.ylabel("Actual fraction of those that are positive")
+    try:
+        m,c = np.polyfit(tenths[:non_zeroes],calib[:non_zeroes],1)
+        plt.axline(xy1=(0, c), slope=m, label=f'$y = {m:.2f}x {c:+.2f}$')
+        plt.legend()
+        plt.savefig(f"d:/Project/figures/{title}.png",dpi=300,format="png")
+    except:
+        print("Linear regression failed!")
+        print(calib)
+            
+    #line = m*tenths + c
+    #plt.plot(tenths,line)
+    plt.show()
+    return calib,numbers
+
+def save_shap_beeswarm(shap_values, filename, **kwargs):
+    """
+    Generate a SHAP beeswarm plot and save it to file,
+    without displaying it or interfering with Spyder's backend.
+    Generated by Copilot, adapted by me
+    (But actually it's not really needed, since now shap.plot includes options to ignore plt.show)
+
+    Parameters
+    ----------
+    shap_values : shap.Explanation or array-like
+        The SHAP values to plot.
+    filename : str
+        Output file path (e.g., "beeplot.png").
+    **kwargs :
+        Any additional arguments passed to plt.savefig(), e.g.
+        dpi=300, bbox_inches='tight', format='png'
+
+    Returns
+    -------
+    None
+    """
+
+    # Save original plt.show
+    original_show = plt.show
+    # Replace show with a no-op so SHAP doesn't clear the figure
+    plt.show = lambda *args, **kw: None
+    # Create the SHAP plot
+    shap.plots.beeswarm(shap_values,max_display=9,group_remaining_features=False)
+    # Save the current figure
+    plt.savefig(filename, **kwargs)
+    # Close the figure to avoid clutter
+    plt.close()
+    # Restore the original plt.show
+    plt.show = original_show
+    
+
+def Do_CV_Results(model,Xdata,Y):
+    # Expects 
+    # a SKLearn model with the usual options available, 
+    # a PANDAS dataframe containing the data
+    # a PANDAS dataframe containing the labels
+    skf = StratifiedKFold(n_splits=5,shuffle=True, random_state=42)
+    CVresults_list=[]
+    for i,(tr_id,te_id) in enumerate(skf.split(Xdata,Y)):
+        print(f"Doing split {i}")
+        Xtr,Ytr = Xdata.iloc[tr_id],Y.iloc[tr_id]
+        Xte,Yte = Xdata.iloc[te_id],Y.iloc[te_id]
+        
+        # I'm going to remerge the training data and labels, so we can resample to 3:1, then split them up again
+        Xtr["label"]=Ytr
+        
+        emerg = Xtr[Xtr["label"] > 0]
+        no_emerg = Xtr[Xtr["label"] == 0].sample(n=len(emerg)*3,random_state = 10)
+        X3tr = pd.concat([emerg,no_emerg])
+        Y3tr = X3tr["label"].astype("int32")
+        Y3tr = np.sign(Y3tr)
+        X3tr.drop(["label"],axis=1,inplace=True)
+        
+        # Now we'll train and run a standard scaler over the data:
+        scaler = StandardScaler()
+        scaler.fit(X3tr)
+        Xtr = scaler.transform(X3tr)
+        Xte = scaler.transform(Xte)
+    
+        model.fit(X3tr,Y3tr)
+        train_preds = model.predict(X3tr)
+        test_preds = model.predict(Xte)
+        
+        prec,recall,f1,support = prfs(Yte,test_preds,average="macro")
+        acc = accuracy_score(Yte,test_preds)
+        bacc = balanced_accuracy_score(Yte,test_preds)
+        print(f"precision {prec}, recall {recall},f1 {f1}, accuracy {acc},balanced accuracy {bacc}")
+        print(prec,recall,f1,acc,bacc)
+        CVresults_list.append([prec,recall,f1,support,acc,bacc])
+        
+def BinSearchThreshold(preds,n,min=0.0,max=1.0):
+    '''
+    Function takes a set of predicted probabilities, and finds the threshold
+    such that about n positives (within 1%). Works recursively.
+    Parameters
+    ----------
+    preds : array of predicted probabilities
+    n : integer defining how many positives are required
+    min : minimum probability to consider The default is 0.0.
+    max : maximum probability to consider The default is 1.0.
+
+    Returns
+    -------
+    The threshold value, as a float, that will yield n positives.
+
+    '''
+    thresh = (min + max)/2.0
+    npred = np.sum(preds>thresh)
+    if abs(npred-n)< n/100:
+        #print(thresh,abs(npred-n))
+        return thresh
+    if npred>n:
+        # we're getting too many, so we need a higher threshold
+        return BinSearchThreshold(preds,n,min=thresh, max=max)
+    else:
+        # we're getting too few: we need a lower threshold
+        return BinSearchThreshold(preds,n,min=min, max=thresh)
+
+
 #%%
 merged=pd.read_csv("X:/oncology_SJUHBW/Admissions Project/Data Extract/post_covid_sex_reg_diag.csv")
 
@@ -235,64 +507,7 @@ plt.title('AUC for test LR data = ' + str(roc_auc_score(Ytest, LR_test1)))
 plt.show()
 
 #%% Now we can pull out blocks where the probabilities lie within a given range, and see what fraction are 1's
-def prior_correct(p, pi_train=0.25, pi_test=1/21):
-    p = np.clip(p, 1e-12, 1 - 1e-12) # numerical safety
-    num = (pi_test / pi_train) * p
-    den = num + ((1 - pi_test) / (1 - pi_train)) * (1 - p)
-    res = num/den
-    return res
 
-
-
-def CalibCurve(preds,labels,title):
-    '''
-    Parameters
-    ----------
-    preds : Output from a SKLearn predict_proba() function, assumed to have 2 values per row (i.e. prob(0) and prob(1))
-    labels: A column of a pandas dataframe containing the true labels
-    title: string describing the dataset, to go in the graph title
-
-    Returns
-    -------
-    list of the percentage of each decile which were actually positive, plus the number of rows in each probability decile
-    '''
-    preds = preds.tolist()
-    preds = [x[1] for x in preds]
-    data = pd.DataFrame(preds,columns=["Probs"])
-    data["Results"]=labels.tolist()
-    tenths = [0.05,0.15,0.25,0.33,0.45,0.55,0.65,0.75,0.85,0.95]
-    calib = []
-    numbers = []
-    non_zeroes = 0
-    for x in range(10):
-        minx = x/10
-        maxx = minx + 0.1
-        subset = data[(data["Probs"]>minx) & (data["Probs"]<=maxx)]
-        n = len(subset)
-        #print(n)
-        numbers.append(n)
-        if n>0:
-            calib.append(subset["Results"].sum()/n)
-            non_zeroes += 1
-        else:
-            calib.append(0)
-    plt.scatter(tenths, calib)
-    plt.title(f"Calibration Curve by Deciles for {title}")
-    plt.xlabel("Predicted probabilities")
-    plt.ylabel("Actual fraction of those that are positive")
-    try:
-        m,c = np.polyfit(tenths[:non_zeroes],calib[:non_zeroes],1)
-        plt.axline(xy1=(0, c), slope=m, label=f'$y = {m:.2f}x {c:+.2f}$')
-        plt.legend()
-        plt.savefig(f"d:/Project/figures/{title}.png",dpi=300,format="png")
-    except:
-        print("Linear regression failed!")
-        print(calib)
-            
-    #line = m*tenths + c
-    #plt.plot(tenths,line)
-    plt.show()
-    return calib,numbers
 #%%
 results,numbers = CalibCurve(LR_test_probs,Ytest,"Logistic Regression Model")
 
@@ -478,54 +693,6 @@ print(f"There were {sum(ytest_pred)} predicted and {sum(Ytest)} actual admission
 
 #%% Let's try making a regressor, and seeing what the calibration looks like
 
-def CalibCurve2(preds,labels,title):
-    '''
-    Parameters
-    ----------
-    preds : Output from a SKLearn predict_proba() function, assumed to have 2 values per row (i.e. prob(0) and prob(1))
-    labels: A column of a pandas dataframe containing the true labels
-    title: string describing the dataset, to go in the graph title
-
-    Returns
-    -------
-    list of the percentage of each decile which were actually positive, plus the number of rows in each probability decile
-    '''
-    preds = preds.tolist()
-    #preds = [x[1] for x in preds]
-    data = pd.DataFrame(preds,columns=["Probs"])
-    data["Results"]=labels.tolist()
-    tenths = [0.05,0.15,0.25,0.33,0.45,0.55,0.65,0.75,0.85,0.95]
-    calib = []
-    numbers = []
-    non_zeroes = 0
-    for x in range(10):
-        minx = x/10
-        maxx = minx + 0.1
-        subset = data[(data["Probs"]>minx) & (data["Probs"]<=maxx)]
-        n = len(subset)
-        #print(n)
-        numbers.append(n)
-        if n>0:
-            calib.append(subset["Results"].sum()/n)
-            non_zeroes += 1
-        else:
-            calib.append(0)
-    plt.scatter(tenths, calib)
-    plt.title(f"Calibration Curve by Deciles for {title}")
-    plt.xlabel("Predicted probabilities")
-    plt.ylabel("Actual fraction of those that are positive")
-    try:
-        m,c = np.polyfit(tenths[:non_zeroes],calib[:non_zeroes],1)
-        plt.axline(xy1=(0, c), slope=m, label=f'$y = {m:.2f}x {c:+.2f}$')
-        plt.legend()
-    except:
-        print("Linear regression failed!")
-        print(calib)
-            
-    #line = m*tenths + c
-    #plt.plot(tenths,line)
-    plt.show()
-    return calib,numbers
 
 xgb_reg_model = xgb.XGBRegressor(booster = 'gbtree',objective="reg:linear", random_state=42, scale_pos_weight=3)
 
@@ -624,43 +791,7 @@ shap.plots.beeswarm(shap_values,max_display=9,group_remaining_features=False)
 
 #%% Set up copilot's nifty function to avoid the show() inside the shap plot
 
-def save_shap_beeswarm(shap_values, filename, **kwargs):
-    """
-    Generate a SHAP beeswarm plot and save it to file,
-    without displaying it or interfering with Spyder's backend.
 
-    Parameters
-    ----------
-    shap_values : shap.Explanation or array-like
-        The SHAP values to plot.
-    filename : str
-        Output file path (e.g., "beeplot.png").
-    **kwargs :
-        Any additional arguments passed to plt.savefig(), e.g.
-        dpi=300, bbox_inches='tight', format='png'
-
-    Returns
-    -------
-    None
-    """
-
-    # Save original plt.show
-    original_show = plt.show
-
-    # Replace show with a no-op so SHAP doesn't clear the figure
-    plt.show = lambda *args, **kw: None
-
-    # Create the SHAP plot
-    shap.plots.beeswarm(shap_values,max_display=9,group_remaining_features=False)
-
-    # Save the current figure
-    plt.savefig(filename, **kwargs)
-
-    # Close the figure to avoid clutter
-    plt.close()
-
-    # Restore the original plt.show
-    plt.show = original_show
 save_shap_beeswarm(shap_values, "D:/Project/figures/LGB_beeswarm.png", dpi=300, bbox_inches="tight")
 #%% Let's try with the xgb model from above - xgb_model
 explainer = shap.Explainer(xgb_model, Xtrain, feature_names=Xtrain_unscaled.columns)
@@ -720,12 +851,6 @@ Xrs = scaler.transform(Xr)
 #%% Now we can go through in batches of a week at a time?
 
 
-def prior_correct(p, pi_train=0.25, pi_test=1/21):
-    p = np.clip(p, 1e-12, 1 - 1e-12) # numerical safety
-    num = (pi_test / pi_train) * p
-    den = num + ((1 - pi_test) / (1 - pi_train)) * (1 - p)
-    res = num/den
-    return res
 #%%
 Xrs.drop(["Label","csd"],axis=1,inplace=True)
 # First we'll run the recent data through a model, generating a new column
@@ -1146,55 +1271,6 @@ with open("D:/Project/Trained_Models/LGB_opt.pkl",'wb') as f:
 #%% Try to run cross-validation on the full dataset, using the "optimal" models we've just got from grid searching...
 
 ###########################################################
-def Do_CV_Results(model,Xdata,Y):
-    # Expects 
-    # a SKLearn model with the usual options available, 
-    # a PANDAS dataframe containing the data
-    # a PANDAS dataframe containing the labels
-    skf = StratifiedKFold(n_splits=5,shuffle=True, random_state=42)
-    CVresults_list=[]
-    for i,(tr_id,te_id) in enumerate(skf.split(Xdata,Y)):
-        print(f"Doing split {i}")
-        Xtr,Ytr = Xdata.iloc[tr_id],Y.iloc[tr_id]
-        Xte,Yte = Xdata.iloc[te_id],Y.iloc[te_id]
-        
-        # I'm going to remerge the training data and labels, so we can resample to 3:1, then split them up again
-        Xtr["label"]=Ytr
-        
-        emerg = Xtr[Xtr["label"] > 0]
-        no_emerg = Xtr[Xtr["label"] == 0].sample(n=len(emerg)*3,random_state = 10)
-        X3tr = pd.concat([emerg,no_emerg])
-        Y3tr = X3tr["label"].astype("int32")
-        Y3tr = np.sign(Y3tr)
-        X3tr.drop(["label"],axis=1,inplace=True)
-        
-        # Now we'll train and run a standard scaler over the data:
-        scaler = StandardScaler()
-        scaler.fit(X3tr)
-        Xtr = scaler.transform(X3tr)
-        Xte = scaler.transform(Xte)
-    
-        # At this stage, there's nothing to stop us running the processed data through a whole bunch of models,
-        # one after the other, if we wanted to. For now we'll just put a LR model in to test things are working.
-        
-        #clf_LR = LogisticRegression(penalty='l1',max_iter=5000,random_state=0,  C = 1.0, solver='liblinear',class_weight='balanced')
-        #clf_LR.fit(X3tr,Y3tr)
-        model.fit(X3tr,Y3tr)
-        train_preds = model.predict(X3tr)
-        test_preds = model.predict(Xte)
-        
-        prec,recall,f1,support = prfs(Yte,test_preds,average="macro")
-        acc = accuracy_score(Yte,test_preds)
-        bacc = balanced_accuracy_score(Yte,test_preds)
-        print(f"precision {prec}, recall {recall},f1 {f1}, accuracy {acc},balanced accuracy {bacc}")
-        print(prec,recall,f1,acc,bacc)
-        CVresults_list.append([prec,recall,f1,support,acc,bacc])
-        #print(classification_report(Y3tr, train_preds))
-        #print(confusion_matrix(Y3tr, train_preds))
-    
-        #print(classification_report(Yte, test_preds)) 
-        #print("Confusion matrix for test data")
-        #print(confusion_matrix(Yte, test_preds))
     
     CVresults_df = pd.DataFrame(CVresults_list,columns=['precision','recall','f1','support','accuracy','balanced acc'])
     return CVresults_df
@@ -1274,18 +1350,6 @@ with open("D:/Project/Trained_Models/LGB_opt.pkl",'rb') as f:
 #%% Let's m ake a function to take a set of prediction probabilities and a "true" number of positives, 
 # and use a binary search to find a threshold that yields that number
 
-def BinSearchThreshold(preds,n,min=0.0,max=1.0):
-    thresh = (min + max)/2.0
-    npred = np.sum(preds>thresh)
-    if abs(npred-n)< n/100:
-        #print(thresh,abs(npred-n))
-        return thresh
-    if npred>n:
-        # we're getting too many, so we need a higher threshold
-        return BinSearchThreshold(preds,n,min=thresh, max=max)
-    else:
-        # we're getting too few: we need a lower threshold
-        return BinSearchThreshold(preds,n,min=min, max=thresh)
     
 LGB_tr = prior_correct(LGB_opt.predict_proba(Xtrain)[:,1])
 print(classification_report(Ytrain, (LGB_tr >= 0.5)))
@@ -1397,55 +1461,7 @@ plt.savefig("d:/Project/figures/LGB_auroc.png",dpi=300,format="png")
 plt.show()
 
 #%% Calbration curve corrected
-def CalibCurveUntitled(preds,labels,title):
-    '''
-    Parameters
-    ----------
-    preds : Output from a SKLearn predict_proba() function, assumed to have 2 values per row (i.e. prob(0) and prob(1))
-    labels: A column of a pandas dataframe containing the true labels
-    title: string describing the dataset, to go in the graph title
 
-    Returns
-    -------
-    list of the percentage of each decile which were actually positive, plus the number of rows in each probability decile
-    '''
-    preds = preds.tolist()
-    preds = [x[1] for x in preds]
-    data = pd.DataFrame(preds,columns=["Probs"])
-    data["Results"]=labels.tolist()
-    tenths = [0.05,0.15,0.25,0.33,0.45,0.55,0.65,0.75,0.85,0.95]
-    calib = []
-    numbers = []
-    non_zeroes = 0
-    for x in range(10):
-        minx = x/10
-        maxx = minx + 0.1
-        subset = data[(data["Probs"]>minx) & (data["Probs"]<=maxx)]
-        n = len(subset)
-        #print(n)
-        numbers.append(n)
-        if n>0:
-            calib.append(subset["Results"].sum()/n)
-            non_zeroes += 1
-        else:
-            calib.append(0)
-    plt.scatter(tenths, calib)
-    #plt.title(f"Calibration Curve by Deciles for {title}")
-    plt.xlabel("Predicted probabilities")
-    plt.ylabel("Actual fraction of those that are positive")
-    try:
-        m,c = np.polyfit(tenths[:non_zeroes],calib[:non_zeroes],1)
-        plt.axline(xy1=(0, c), slope=m, label=f'$y = {m:.2f}x {c:+.2f}$')
-        plt.legend()
-        plt.savefig(f"d:/Project/figures/{title}.png",dpi=300,format="png")
-    except:
-        print("Linear regression failed!")
-        print(calib)
-            
-    #line = m*tenths + c
-    #plt.plot(tenths,line)
-    plt.show()
-    return calib,numbers
 results,numbers = CalibCurveUntitled(prior_correct(LGBtest_probs),Ytest,"LGB_3")
 
 #%% Check that our predictions make some sort of sense - scatter plots look more or less random...
